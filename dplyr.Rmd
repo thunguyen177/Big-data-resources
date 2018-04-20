@@ -1,0 +1,226 @@
+---
+title: "dplyr - An accompanian to dplyr Cheat Sheet"
+author: "Thu Nguyen"
+output: pdf_document #beamer_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## R Cheat Sheet
+
+- RStudio >>> Help >>> Cheatsheet
+- data()
+
+Data sets in package 'datasets':
+
+AirPassengers                       Monthly Airline Passenger Numbers 1949-1960
+
+BJsales                             Sales Data with Leading Indicator
+
+...
+
+- data(package = "MASS")
+
+Data sets in package 'MASS':
+
+Aids2                               Australian AIDS Survival Data
+
+Animals                             Brain and Body Weights for 28 Species
+
+....
+
+## Summarise cases
+```{r, echo = TRUE}
+library(dplyr)
+summarise(mtcars,avg=mean(mpg))
+count(iris,Species)
+```
+- n_distinct()
+```{r, echo = TRUE}
+x = 1:5
+x = c(x,x)
+x
+n_distinct(x)
+```
+## Group_by and pipes
+```{r, echo = TRUE}
+iris %>%
+  group_by(Species) %>%
+  summarise_all(mean)
+# g_iris = group_by(iris,Species)
+# upgroup(g_iris)
+starwars %>% summarise_at(c("height", "mass"), mean, na.rm = TRUE)
+starwars %>% summarise_if(is.numeric, mean, na.rm = TRUE)
+```
+
+## Manipulate cases
+### Filter
+```{r, echo = TRUE}
+filter(iris, Sepal.Length > 7)[1:5,]
+# Multiple criteria
+filter(starwars, hair_color == "none" & eye_color == "black")[1:5,]
+filter(starwars, hair_color == "none" | eye_color == "black")[1:5,]
+# Multiple arguments are equivalent to and
+filter(starwars, hair_color == "none", eye_color == "black")[1:5,]
+```
+### Distinct
+```{r, echo = TRUE}
+df <- tibble(
+  g = c(1, 1, 2, 2),
+  x = c(1, 1, 2, 1)
+) 
+df
+df %>% distinct()
+df %>% distinct(x)
+```
+### Sample
+```{r, echo = TRUE}
+sample_frac(mtcars, 0.1)
+sample_frac(mtcars, 1.5, replace = TRUE)[1:5,]
+sample_frac(mtcars, 0.1, weight = 1 / mpg)
+```
+weight: Sampling weights. This must evaluate to a vector of non-negative numbers the same length as the input. Weights are automatically standardised to sum to 1.
+```{r, echo=TRUE}
+by_cyl <- mtcars %>% group_by(cyl)
+sample_n(by_cyl, 3)
+sample_n(by_cyl, 7, replace = TRUE)
+sample_n(by_cyl, 3, weight = mpg / mean(mpg))
+```
+
+### Arrange
+Use desc() to sort a variable in descending order.
+```{r, echo = TRUE}
+arrange(mtcars, cyl, disp)[1:5,]
+arrange(mtcars, desc(disp))[1:5,]
+```
+
+## Manipulate variables
+- Select/rename variables by name:
+```{r, echo = TRUE}
+select(iris, starts_with("Petal"))[1:5,]
+select(iris, ends_with("Width"))[1:5,]
+# Drop variables with -
+select(iris, -starts_with("Petal"))[1:5,]
+```
+Some useful helpers to use with select(): contains(), matches(), num_range(prefix,range), one_of, everything(), starts_with, ends_with()
+
+- mutate() adds new variables and preserves existing; transmute(): transform existing variables
+```{r, echo = TRUE}
+mtcars[1:5,] %>%
+  transmute(displ_l = disp / 61.0237)
+
+mtcars %>%
+ group_by(cyl) %>%
+ mutate(rank = min_rank(desc(mpg)))
+
+iris %>% 
+  group_by(Species)%>% 
+  mutate_all(funs(. / 2.54))
+
+mutate_if(iris, is.numeric,funs(log(.)))[1:5,]
+
+mutate_at(iris,vars(-Species), funs(log(.),log2(.)))[1:5,]
+
+```
+
+## Vetorized function: misc: 
+- between()
+```{r, echo = TRUE}
+x = 2*(1:10)
+x
+between(x,6,13)
+x[between(x,6,13)]
+```
+
+- case_when()
+```{r, echo = TRUE}
+mtcars$carb
+mtcars %>%  
+     mutate(cg = case_when(.$carb <= 2 ~ "low",  .$carb > 2 ~ "high")) %>%
+    .$cg %>%
+    table()
+```
+
+- na_if()
+```{r, echo = TRUE}
+y <- c("abc", "def", "", "ghi")
+na_if(y, "")
+```
+
+## Names: library(tibble)
+
+```{r, echo=TRUE}
+names(iris)
+rename(iris, Length = Sepal.Length)[1:3,]
+library(tibble)
+# ? rownames_to_column
+mtcars[1:3,]
+rownames_to_column(mtcars)[1:3,]
+```
+
+```{r, echo = TRUE}
+x= rownames_to_column(mtcars)
+column_to_rownames(x,"rowname")[1:3,]
+```
+
+## Combine 
+- cbind(): column bind
+- rbind(): row bind
+```{r, echo = TRUE}
+x = 1:5
+u = 2*x
+rbind(x,u)
+cbind(x,u)
+```
+
+- inner_join(): return all rows from x where there are matching values in y, and all columns from x and y. If there are multiple matches between x and y, all combination of the matches are returned.
+
+- left_join(): return all rows from x, and all columns from x and y. Rows in x with no match in y will have NA values in the new columns. If there are multiple matches between x and y, all combinations of the matches are returned.
+
+- right_join(): return all rows from y, and all columns from x and y. Rows in y with no match in x will have NA values in the new columns. If there are multiple matches between x and y, all combinations of the matches are returned.
+
+- full_join(): return all rows and all columns from both x and y. Where there are not matching values, returns NA for the one missing.
+
+- semi_join(): return all rows from x where there are matching values in y, keeping just columns from x.
+A semi join differs from an inner join because an inner join will return one row of x for each matching row of y, where a semi join will never duplicate rows of x.
+
+- anti_join(): return all rows from x where there are not matching values in y, keeping just columns from x.
+
+```{r, echo = TRUE}
+head(band_members)
+band_members %>% inner_join(band_instruments)
+band_members %>% left_join(band_instruments)
+band_members %>% right_join(band_instruments)
+band_members %>% full_join(band_instruments)
+band_members %>% semi_join(band_instruments)
+band_members %>% anti_join(band_instruments)
+#  Use a named `by` if the join variables have different names
+band_members %>% full_join(band_instruments2, by = c("name" = "artist"))
+```
+
+- intersect(x, y, ...)
+
+- union(x, y, ...)
+
+- union_all(x, y, ...)
+
+- setdiff(x, y, ...)
+
+- setequal(x, y, ...)
+```{r, echo = TRUE}
+mtcars$model <- rownames(mtcars)
+first <- mtcars[1:20, ]
+second <- mtcars[10:32, ]
+
+intersect(first, second)[1:4,]
+union(first, second)[1:4,]
+setdiff(first, second)[1:4,]
+setdiff(second, first)[1:4,]
+
+union_all(first, second)[1:4,]
+setequal(mtcars, mtcars[12:1, ])
+
+```
+
